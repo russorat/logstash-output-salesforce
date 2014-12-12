@@ -44,7 +44,6 @@ class LogStash::Outputs::Salesforce < LogStash::Outputs::Base
 
   public
   def register
-    super
     require 'restforce'
     @client = Restforce.new :username => @username,
                             :password       => @password,
