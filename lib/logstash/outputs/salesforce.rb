@@ -11,6 +11,8 @@ class LogStash::Outputs::SalesForce < LogStash::Outputs::Base
   # }
   config_name "salesforce"
 
+  # Set this if you want to connect to the test salesforce instance
+  config :host, :validate => :string, :required => false
   # Consumer Key for authentication. You must set up a new SFDC
   # connected app with oath to use this output. More information
   # can be found here:
@@ -51,11 +53,20 @@ class LogStash::Outputs::SalesForce < LogStash::Outputs::Base
   public
   def register
     require 'restforce'
-    @client = Restforce.new :username => @username,
-                            :password       => @password,
-                            :security_token => @security_token,
-                            :client_id      => @client_id,
-                            :client_secret  => @client_secret
+    if @host
+      @client = Restforce.new :host           => @host,
+                              :username       => @username,
+                              :password       => @password,
+                              :security_token => @security_token,
+                              :client_id      => @client_id,
+                              :client_secret  => @client_secret
+    else
+      @client = Restforce.new :username       => @username,
+                              :password       => @password,
+                              :security_token => @security_token,
+                              :client_id      => @client_id,
+                              :client_secret  => @client_secret
+    end
     obj_desc = @client.describe(@sfdc_object_name)
     @static_fields = get_static_fields(obj_desc)
     @field_types = get_field_types(obj_desc)
@@ -144,6 +155,9 @@ class LogStash::Outputs::SalesForce < LogStash::Outputs::Base
         vals_to_update[sfdc_key] = static_value
       end
       resp = @client.create(@sfdc_object_name,vals_to_update)
+      if not resp
+        raise "Failed to create object probably due to missing required fields. "+vals_to_update.to_s
+      end
       @logger.debug("Id of created object: "+resp.to_s)
       return resp
     end
