@@ -1,17 +1,16 @@
 Gem::Specification.new do |s|
-
   s.name            = 'logstash-output-salesforce'
   s.version         = '0.0.1'
   s.licenses        = ['Apache License (2.0)']
   s.summary         = "An output to create and update Salesforce sObjects using the API"
   s.description     = "This gem is a logstash plugin required to be installed on top of the Logstash core pipeline using $LS_HOME/bin/plugin install gemname. This gem is not a stand-alone program"
   s.authors         = ["Russ Savage"]
-  s.email           = 'russell.savage@elasticsearch.com'
+  s.email           = 'russ@elastic.co'
   s.homepage        = "https://github.com/russorat/logstash-output-salesforce"
   s.require_paths = ["lib"]
 
   # Files
-  s.files = `git ls-files`.split($\)+::Dir.glob('vendor/*')
+  s.files = `git ls-files`.split($\)
 
   # Tests
   s.test_files = s.files.grep(%r{^(test|spec|features)/})
