@@ -1,18 +1,19 @@
-# encoding: utf-8
-require "logstash/outputs/base"
 require "logstash/namespace"
+require "logstash/outputs/file"
 
 class LogStash::Outputs::SalesForce < LogStash::Outputs::Base
 
-  # This is how you configure this output from your Logstash config.
+  # Setting the config_name here is required. This is how you
+  # configure this output from your Logstash config.
   #
   # output {
   #   salesforce { ... }
   # }
   config_name "salesforce"
-
-  # Set this if you want to connect to the test salesforce instance
-  config :host, :validate => :string, :required => false
+  
+  # Set this to true to connect to a sandbox sfdc instance
+  # logging in through test.salesforce.com
+  config :test, :validate => :boolean, :default => false
   # Consumer Key for authentication. You must set up a new SFDC
   # connected app with oath to use this output. More information
   # can be found here:
@@ -27,34 +28,34 @@ class LogStash::Outputs::SalesForce < LogStash::Outputs::Base
   # The password used to login to sfdc
   config :password, :validate => :string, :required => true
   # The security token for this account. For more information about
-  # generating a security token, see:
+  # generting a security token, see:
   # https://help.salesforce.com/apex/HTViewHelpDoc?id=user_security_token.htm
   config :security_token, :validate => :string, :required => true
   # The name of the salesforce object you are creating or updating
   config :sfdc_object_name, :validate => :string, :required => true
-  # This is a mapping of event fields to sObject fields. This
-  # is used for querying for sObject so as not
-  # to duplicate them. The combination of these values should be unique
-  # to the sObject.
+  # This is a mapping of document fields to sfdc object fields. This
+  # is used for querying for sfdc objects and the combination of these
+  # values should be unique to the object.
   config :event_to_sfdc_keys_mapping, :validate => :hash, :required => true
   # This is a mapping of event fields to sfdc object fields. If the event
   # field is not present, it is ignored. Fields that are not allowed to be
   # updated are automatically removed.
   config :event_to_sfdc_mapping, :validate => :hash, :default => {}
-  # Use this mapping to put static values into SFDC. For example, always
-  # setting a boolean field to true.
+  # Use this mapping to put static values into SFDC
   config :raw_values_to_sfdc_mapping, :validate => :hash, :default => {}
-  # These fields will be incremented by 1 if an existing record is found
+  # These fileds will be incremented by 1 if an existing record is found
   # They will be set to 1 on all new records
   config :increment_fields, :validate => :array, :default => []
-  # Set this to false to disable creating new records
+  # Set this to False to disable creating new records
   config :should_create_new_records, :validate => :boolean, :default => true
+  # The field name to store the results in if needed.
+  config :store_results_in, :validate => :string, :default => nil
 
   public
   def register
     require 'restforce'
-    if @host
-      @client = Restforce.new :host           => @host,
+    if @test
+      @client = Restforce.new :host           => 'test.salesforce.com',
                               :username       => @username,
                               :password       => @password,
                               :security_token => @security_token,
@@ -101,7 +102,7 @@ class LogStash::Outputs::SalesForce < LogStash::Outputs::Base
       return unless event
       return unless sfdc_obj
       @event_to_sfdc_mapping.each do |evt_key,sfdc_key|
-        if event[evt_key]
+        if defined?(event[evt_key]) and not event[evt_key].nil?
           if @field_types[sfdc_key] == 'datetime'
             if event[evt_key].respond_to?(:strftime)
               sfdc_obj[sfdc_key] = Time.parse(event[evt_key].strftime("%Y-%m-%d %H:%M:%S"))
@@ -126,15 +127,31 @@ class LogStash::Outputs::SalesForce < LogStash::Outputs::Base
         update_hash.delete(k)
       end
       @logger.debug("Values to be updated: "+update_hash.to_s)
-      resp = @client.update(@sfdc_object_name,update_hash)
+      for i in 0..3
+        resp = @client.update(@sfdc_object_name,update_hash)
+        if resp
+          break
+        end
+        @logger.debug("Retrying...")
+        sleep(1) # Sleep one second between retries
+      end
+      if !resp
+        @logger.error('Was not able to update: '+update_hash['Id'])
+      end
       @logger.debug("Response: "+resp.to_s)
+      if !@store_results_in.nil?
+        event[@store_results_in] = {
+          'status' => resp,
+          'object_id' => update_hash['Id']
+        }
+      end
     end
 
     def create_sfdc_object(event)
       return unless event
       vals_to_update = {}
       @event_to_sfdc_mapping.each do |evt_key,sfdc_key|
-        if event[evt_key]
+        if defined?(event[evt_key])
           if @field_types[sfdc_key] == 'datetime'
             if event[evt_key].respond_to?(:strftime)
               vals_to_update[sfdc_key] = Time.parse(event[evt_key].strftime("%Y-%m-%d %H:%M:%S"))
@@ -155,10 +172,13 @@ class LogStash::Outputs::SalesForce < LogStash::Outputs::Base
         vals_to_update[sfdc_key] = static_value
       end
       resp = @client.create(@sfdc_object_name,vals_to_update)
-      if not resp
-        raise "Failed to create object probably due to missing required fields. "+vals_to_update.to_s
-      end
       @logger.debug("Id of created object: "+resp.to_s)
+      if !@store_results_in.nil?
+        event[@store_results_in] = {
+          'status' => !resp.nil?,
+          'object_id' => resp.to_s
+        }
+      end
       return resp
     end
 
