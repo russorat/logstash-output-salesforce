@@ -10,7 +10,7 @@ class LogStash::Outputs::SalesForce < LogStash::Outputs::Base
   #   salesforce { ... }
   # }
   config_name "salesforce"
-  
+
   # Set this to true to connect to a sandbox sfdc instance
   # logging in through test.salesforce.com
   config :test, :validate => :boolean, :default => false
@@ -28,7 +28,7 @@ class LogStash::Outputs::SalesForce < LogStash::Outputs::Base
   # The password used to login to sfdc
   config :password, :validate => :string, :required => true
   # The security token for this account. For more information about
-  # generting a security token, see:
+  # generating a security token, see:
   # https://help.salesforce.com/apex/HTViewHelpDoc?id=user_security_token.htm
   config :security_token, :validate => :string, :required => true
   # The name of the salesforce object you are creating or updating
@@ -43,10 +43,10 @@ class LogStash::Outputs::SalesForce < LogStash::Outputs::Base
   config :event_to_sfdc_mapping, :validate => :hash, :default => {}
   # Use this mapping to put static values into SFDC
   config :raw_values_to_sfdc_mapping, :validate => :hash, :default => {}
-  # These fileds will be incremented by 1 if an existing record is found
+  # These fields will be incremented by 1 if an existing record is found
   # They will be set to 1 on all new records
   config :increment_fields, :validate => :array, :default => []
-  # Set this to False to disable creating new records
+  # Set this to false to disable creating new records
   config :should_create_new_records, :validate => :boolean, :default => true
   # The field name to store the results in if needed.
   config :store_results_in, :validate => :string, :default => nil
