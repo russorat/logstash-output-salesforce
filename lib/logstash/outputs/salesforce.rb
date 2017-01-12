@@ -60,13 +60,15 @@ class LogStash::Outputs::SalesForce < LogStash::Outputs::Base
                               :password       => @password,
                               :security_token => @security_token,
                               :client_id      => @client_id,
-                              :client_secret  => @client_secret
+                              :client_secret  => @client_secret,
+                              :ssl            => 'TLSv1.1'
     else
       @client = Restforce.new :username       => @username,
                               :password       => @password,
                               :security_token => @security_token,
                               :client_id      => @client_id,
                               :client_secret  => @client_secret
+                              :ssl            => 'TLSv1.1'
     end
     obj_desc = @client.describe(@sfdc_object_name)
     @static_fields = get_static_fields(obj_desc)
